@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no">
+    <meta charset="utf-8">
+    <title>简易聊天室</title>
+    <link rel="stylesheet" href="https://cdn.staticfile.org/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://cdn.staticfile.org/jquery/2.1.1/jquery.min.js"></script>
+    <script src="https://cdn.staticfile.org/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <style>
+        .red {color:red;}
+        .green {color:green;}
+    </style>
+</head>
+<body>
+    <h1>当前在线人数：<span id="count"></span></h1>
+    <h4 style="color: blue">当前在线用户：<span id="uids"></span></h4>
+    <div id="content">
+
+    </div>
+    <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                    <h4 class="modal-title" id="myModalLabel">输入用户名</h4>
+                </div>
+                <div class="modal-body">
+                    <input type='text' id='name'>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default"data-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" onclick="set_name();">提交更改</button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal-dialog -->
+    </div>
+    <input type='text' id='msg' onkeydown="keyDownSearch()"><button onclick="send()">发送</button>
+</body>
+</html>
+
+<script>
+
+	//设置要连接的服务器和端口号
+    var wsServer = 'ws://127.0.0.1:8888';  
+	
+    var websocket = new WebSocket(wsServer);
+	
+	//连接
+    websocket.onopen = function (evt) {
+        console.log("Connected to WebSocket server.");
+		//判断是否已设置用户名
+        var user_name = localStorage.getItem("user_name");
+        if(!user_name){
+            $('#myModal').modal('show');
+            $('#myModal').on('hide.bs.modal', function () {
+                set_name();
+            })
+        }else{
+            connect(user_name);
+        }
+    };
+
+	//断开
+    websocket.onclose = function (evt) {
+        console.log("Disconnected");
+    };
+
+	//接收消息
+    websocket.onmessage = function (evt) {
+        //console.log('Retrieved data from server: ' + evt.data);
+        var data = JSON.parse(evt.data)
+		console.log(data);
+        //在线人数
+        if(data.count){
+            $("#count").text(data.count);
+        }
+        //历史消息
+        if(data.list){
+            var list = JSON.parse(data.list);
+            var user_name = localStorage.getItem("user_name");
+            if(user_name == data.list_to){
+                for (var i=0;i<list.length;i++) {
+                    var p = '<p>'+list[i]+'</p>';
+                    $('#content').append(p);
+                }
+            }
+        }
+        //在线用户
+        if(data.uids){
+            var uids = JSON.parse(data.uids);
+            //console.log(uids);
+            var arr = [];
+            for (var i in uids) {
+                arr.push(uids[i]);
+            }
+            $("#uids").text(arr.join(','));
+        }
+        //消息显示
+        if(data.msg){
+            var p = '<p class="'+data.class+'">'+data.msg+'</p>';
+            $('#content').append(p);
+        }
+
+    };
+
+    websocket.onerror = function (evt, e) {
+        console.log(evt);
+    };
+	
+	var set_name = function () {
+        var name = $('#name').val();
+        if(!name){
+            alert('请填写用户名');
+            window.location.reload();
+        }
+        localStorage.setItem("user_name", name);
+        $('#myModal').hide();
+        $('.modal-backdrop').hide();
+        connect(name);
+    }
+    var connect = function (name) {
+        console.log(name+' connect');
+        var sendData = {
+            action:'connect',
+            name:name,
+        };
+        websocket.send(JSON.stringify(sendData));
+    }
+    var send = function () {
+        var text = $("#msg").val();
+        if(text){
+            var sendData = {
+                action:'msg',
+                message:text,
+            };
+			//发送
+            websocket.send(JSON.stringify(sendData));
+            $("#msg").val('');
+        }
+    }
+    function keyDownSearch(e) {
+        // 兼容FF和IE和Opera
+        var theEvent = e || window.event;
+        var code = theEvent.keyCode || theEvent.which || theEvent.charCode;
+        if (code == 13) {
+            send();//具体处理函数
+            return false;
+        }
+        return true;
+    }
+
+</script>
