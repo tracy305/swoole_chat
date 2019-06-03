@@ -1,5 +1,4 @@
-# swoole_chat
-使用swoole扩展搭建的一个简易聊天室
+
 
 1、修改server/config.php中的配置信息
 
