@@ -17,7 +17,7 @@ $port1->set(['open_websocket_protocol' => false]);
 
 //WebSocket连接成功
 $server->on('open', function (Swoole\WebSocket\Server $server, $request) {
-    echo "server: handshake success with fd{$request->fd}\n";
+    //echo "server: handshake success with fd{$request->fd}\n";
 });
 
 //WebSocket收到消息
@@ -66,7 +66,7 @@ $server->on('message', function (Swoole\WebSocket\Server $server, $frame) use ($
 
 //WebSocket连接关闭
 $server->on('close', function ($ser, $fd) use ($redis){
-    echo "client {$fd} closed\n";
+    //echo "client {$fd} closed\n";   //后台运行时要去掉echo
     //删除当前客户端
     $name = $redis->get('fd'.$fd);
     $redis->srem('online_list',$name);
@@ -80,12 +80,17 @@ $server->on('close', function ($ser, $fd) use ($redis){
         'uids' => json_encode($users),
         'name' => $name,
     ];
-    Tool::sendToAll($ser,$result);
+    foreach ($server->connections as $conn) {
+		//不发送给当前退出的客户端
+		if ($server->isEstablished($conn) && $conn != $fd) {
+			$server->push($conn, json_encode($result));
+		}
+	}
 });
 
 //tcp连接成功
 $port1->on('connect', function ($port1, $fd) {
-    echo "Client: Connect.\n";
+    //echo "Client: Connect.\n";
 });
 //tcp收到消息
 $port1->on('receive', function ($port1, $fd, $from_id, $data) use ($server) {
